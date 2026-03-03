@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"slices"
 	"sync"
 )
 
@@ -30,7 +31,7 @@ func (d *fallbackDialer) DialContext(ctx context.Context, network, addr string) 
 			lastErr = err
 			continue
 		}
-		d.hostports = append(append([]string{hostport}, d.hostports[:idx]...), d.hostports[idx+1:]...)
+		d.hostports = slices.Insert(slices.Delete(d.hostports, idx, idx+1), 0, hostport)
 		return conn, nil
 	}
 	return nil, lastErr

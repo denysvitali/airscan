@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -126,10 +127,8 @@ func (c *Client) do(req *http.Request, okayStatuses ...int) (resp *http.Response
 	if err != nil {
 		return nil, err
 	}
-	for _, okay := range okayStatuses {
-		if resp.StatusCode == okay {
-			return resp, nil
-		}
+	if slices.Contains(okayStatuses, resp.StatusCode) {
+		return resp, nil
 	}
 	want := fmt.Sprintf("one of %v", okayStatuses)
 	if len(okayStatuses) == 1 {
@@ -157,7 +156,7 @@ func (c *Client) ScannerStatus() (*ScannerStatus, error) {
 	}
 	start := time.Now()
 	resp, err := c.do(req, http.StatusOK)
-	elapsed := time.Now().Sub(start).Milliseconds()
+	elapsed := time.Since(start).Milliseconds()
 	if c.debug {
 		log.Printf("ScannerStatus request took %d ms", elapsed)
 	}
@@ -255,7 +254,7 @@ func (s *ScanState) ScanPage() bool {
 		return false
 	}
 	const tries = 10
-	for try := 0; try < tries; try++ {
+	for try := range tries {
 		resp, err := s.scanner.do(req, http.StatusOK, http.StatusNotFound, http.StatusServiceUnavailable)
 		if resp != nil {
 			switch resp.StatusCode {
@@ -431,6 +430,17 @@ func NewClientForService(service *dnssd.BrowseEntry) *Client {
 	}
 	fbDialer.debug = &c.debug
 	return c
+}
+
+// NewClientForIP connects directly to addr, bypassing DNS-SD.
+// addr may be "192.168.1.100" (port 80 default) or "192.168.1.100:9095".
+func NewClientForIP(addr string) *Client {
+	return &Client{
+		host: addr,
+		HTTPClient: &http.Client{
+			Transport: http.DefaultTransport.(*http.Transport).Clone(),
+		},
+	}
 }
 
 func (c *Client) SetDebug(debug bool) {

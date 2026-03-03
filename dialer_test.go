@@ -14,9 +14,13 @@ func TestDialer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
 
-	go http.Serve(ln, mockScanner(t))
+	srv := &http.Server{Handler: mockScanner(t)}
+	go srv.Serve(ln)
+	t.Cleanup(func() {
+		srv.Shutdown(t.Context())
+		ln.Close()
+	})
 
 	addr := ln.Addr().(*net.TCPAddr)
 
